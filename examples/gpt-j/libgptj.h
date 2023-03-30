@@ -6,9 +6,9 @@
 #include <fstream>
 #include <iostream>
 #include "unistd.h"
+#include "wchar.h"
 
-struct gpt_params_c {
-    int32_t seed      = -1; // RNG seed
+struct gpt_params_c { int32_t seed      = -1; // RNG seed
     int32_t n_threads = std::min(4, (int32_t) std::thread::hardware_concurrency());
     int32_t n_predict = 200; // new tokens to predict
 
@@ -21,6 +21,8 @@ struct gpt_params_c {
 
     const char * model = "models/gpt-2-117M/ggml-model.bin"; // model path
     const char * prompt;
+    
+    // TODO: Add n_ctx param
 };
 
 // default hparams (GPT-J 6B)
