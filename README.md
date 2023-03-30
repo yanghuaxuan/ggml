@@ -1,5 +1,5 @@
 # ggml for kobold
-A port of (llamacpp-for-kobold)[https://github.com/LostRuins/llamacpp-for-kobold] for the GGML examples.  
+A port of [llamacpp-for-kobold](https://github.com/LostRuins/llamacpp-for-kobold) for the GGML examples.  
 Only GPT-J models, and other models derived from GPT-J (like Pygmalion) are supported right now. 
 
 ## Usage
