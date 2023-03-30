@@ -8,9 +8,10 @@
 #include "unistd.h"
 #include "wchar.h"
 
+
 struct gpt_params_c { int32_t seed      = -1; // RNG seed
     int32_t n_threads = std::min(4, (int32_t) std::thread::hardware_concurrency());
-    int32_t n_predict = 200; // new tokens to predict
+    int32_t n_predict = 20; // new tokens to predict
 
     // sampling parameters
     int32_t top_k = 40;
@@ -35,6 +36,8 @@ struct gptj_hparams {
     int32_t n_rot   = 64;
     int32_t f16     = 1;
 };
+
+static gptj_hparams hparams;
 
 struct gptj_layer {
     // normalization
@@ -81,7 +84,6 @@ struct gptj_model {
 
 bool gptj_model_load(const std::string & fname, gptj_model & model, gpt_vocab & vocab);
 
-
 bool gptj_eval(
         const gptj_model & model,
         const int n_threads,
@@ -94,14 +96,6 @@ extern gpt_vocab vocab;
 extern gptj_model model;
 
 // C function to use for our Python KAI
-#ifdef __cplusplus
 extern "C" int load_model(gpt_params_c * params);
-#else
-int load_model(gpt_params_c * params);
-#endif
 // C function to use for our Python KAI
-#ifdef __cplusplus
-extern "C" const char * generate(gpt_params_c & params);
-#else
-const char * generate(gpt_params_c & params);
-#endif
+extern "C" int generate(gpt_params_c & params, char ** output);
