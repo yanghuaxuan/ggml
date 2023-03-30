@@ -25,6 +25,7 @@ python ggml-kobold.py
 
 ## Caveats
 * Max context tuning may or not actually work. Idk haven't managed to test if it works lol
+* The GPTJ example provided seems to be outdated, at least compared to the LLama example. Therefore, stuff that is easy to implement in llama.cpp is very cumbersome to implement.
 
 ## License
 * The original GGML library and examples by ggerganov are licensed under the MIT License
