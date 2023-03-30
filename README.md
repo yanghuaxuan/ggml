@@ -1,6 +1,7 @@
 # ggml for kobold
 A port of [llamacpp-for-kobold](https://github.com/LostRuins/llamacpp-for-kobold) for the GGML examples.  
 Only GPT-J models, and other models derived from GPT-J (like Pygmalion) are supported right now. 
+<img width="1329" alt="image" src="https://user-images.githubusercontent.com/14863137/228918669-1a611159-e1c5-47e5-92e8-57d43617d838.png">
 
 ## Usage
 You must first build the GGML library + GPTJ example. How's an example for running on Linux
