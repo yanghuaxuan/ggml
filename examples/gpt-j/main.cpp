@@ -1,5 +1,6 @@
 #include "libgptj.h"
 #include <stdint.h>
+#include "wchar.h"
 
 int main(int argc, char ** argv) {
     gpt_params params;
