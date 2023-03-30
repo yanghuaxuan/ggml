@@ -5,6 +5,7 @@ import ctypes
 import os
 from pathlib import Path
 import json, http.server, threading, socket, sys, time
+import re
 
 class gpt_params_c(ctypes.Structure):
     _fields_ = [("seed", ctypes.c_int32),
@@ -22,14 +23,14 @@ libgptj = ctypes.CDLL(dir_path + "/build/examples/gpt-j/liblibgptj.dylib")
 
 libgptj.load_model.argtypes = [gpt_params_c] 
 libgptj.load_model.restype = ctypes.c_int;
-libgptj.generate.argtypes = [gpt_params_c] 
-libgptj.generate.restype = ctypes.c_char_p;
+libgptj.generate.argtypes = [gpt_params_c, ctypes.POINTER(ctypes.c_char_p)] 
+libgptj.generate.restype = ctypes.c_int;
    
 def load_model(parameters):
     return libgptj.load_model(parameters)
 
-def generate(parameters):
-    return libgptj.generate(parameters)
+def generate(parameters, p_prompt_p):
+    return libgptj.generate(parameters, p_prompt_p)
 
 #################################################################
 ### A hacky simple HTTP server simulating a kobold api by Concedo
@@ -140,6 +141,7 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             newprompt = fullprompt
             
             recvtxt = ""
+            output = ctypes.c_char_p(b"")
             if kai_api_flag:
                 parameters.seed=-1
                 parameters.prompt=newprompt.encode("ascii")
@@ -148,7 +150,11 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 parameters.top_k = int(genparams.get('top_k', parameters.top_k))
                 parameters.top_p= float(genparams.get('top_p', parameters.top_p))
                 parameters.n_predict = int(genparams.get('max_length', parameters.n_predict))
-                recvtxt = generate(parameters).decode("ascii", "ignore")
+                print("PROMPT ===========: " + parameters.prompt.decode("ascii", "ignore"))
+                status = generate(parameters, ctypes.byref(output))
+                recvtxt = output.value.decode("ascii", "ignore")
+                #print("PATTERN ==========: " + "^" + rf"{parameters.prompt.decode('ascii', 'ignore')}")
+                recvtxt = re.sub("^" + rf"{re.escape(parameters.prompt.decode('ascii', 'ignore'))}", "", recvtxt)
 
                 print("\nOutput: " + recvtxt)
                 res = {"results": [{"text": recvtxt}]}
@@ -157,14 +163,17 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps(res).encode())               
             else:
                 parameters.seed=-1
-                parameters.prompt=newprompt.encode("ascii", "ignore")
+                parameters.prompt=newprompt.encode("ascii")
                 #parameters.max_context_length = ...
                 parameters.temp = float(genparams.get('temperature', parameters.temp))
                 parameters.top_k = int(genparams.get('top-k', parameters.top_k))
                 parameters.n_predict = int(genparams.get('max_length', parameters.n_predict))
                 parameters.top_p= float(genparams.get('top_p', parameters.top_p))
 
-                recvtxt = generate(parameters).decode("ascii")
+                status = generate(parameters, ctypes.POINTER(recvtxt))
+                recvtxt.decode("ascii", "ignore")
+                #print("PATTERN ==========: " + "^" + rf"{parameters.prompt.decode('ascii', 'ignore')}")
+                recvtxt = re.sub("^" + rf"{parameters.prompt.decode('ascii', 'ignore')}", "", recvtxt)
                 print("\nOutput: " + recvtxt)
                 res = {"data": {"seqs":[recvtxt]}}
                 self.send_response(200)
