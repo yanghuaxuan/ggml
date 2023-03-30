@@ -1,6 +1,9 @@
 #include "libgptj.h"
+#include <stdlib.h>
+#include "string.h"
 
-static gptj_model model;
+gptj_model model;
+gpt_vocab vocab;
 
 int load_model(std::string & filename) {
     gpt_vocab vocab;
@@ -293,6 +296,14 @@ bool gptj_model_load(const std::string & fname, gptj_model & model, gpt_vocab & 
     return true;
 }
 
+int load_model(gpt_params_c *params) {
+    if (!gptj_model_load(params->model, model, vocab)) {
+        printf("Failed to load model!");
+        return 1;
+    }
+    return 0;
+}
+
 bool gptj_eval(
         const gptj_model & model,
         const int n_threads,
@@ -521,8 +532,8 @@ bool gptj_eval(
     return true;
 }
 
-int generate(gpt_params & params, const gpt_vocab & vocab, gptj_model & model) {
-
+const char * generate(gpt_params_c & params) {
+    static std::string generated_text = "";
 
     if (params.seed < 0) {
         params.seed = time(NULL);
@@ -531,16 +542,36 @@ int generate(gpt_params & params, const gpt_vocab & vocab, gptj_model & model) {
     printf("%s: seed = %d\n", __func__, params.seed);
 
     std::mt19937 rng(params.seed);
-    if (params.prompt.empty()) {
-        if( !isatty(STDIN_FILENO) ){
-            std::string line;
-            while( std::getline(std::cin, line) ){
-                params.prompt = params.prompt + "\n" + line;
-            }
-        } else {
-            params.prompt = gpt_random_prompt(rng);
-        }
-    }
+//    if (strlen(params.prompt) == 0) {
+//        if( !isatty(STDIN_FILENO) ){
+//            std::string line;
+//            while( std::getline(std::cin, line) ){
+//                char * new_prompt;
+//                new_prompt =  (char *)malloc(strlen(params.prompt) + strlen("\n") + strlen(line.c_str())+1);
+//                if(new_prompt != NULL) {
+//                    new_prompt[0] = '\0';
+//                    strcat(new_prompt, params.prompt);
+//                    strcat(new_prompt, "\n");
+//                    strcat(new_prompt, line.c_str());
+//                } else {
+//                    return NULL;
+//                }
+//                free(new_prompt);
+//            }
+//        } else {
+//            char * new_prompt;
+//            new_prompt = (char*)malloc(strlen(gpt_random_prompt(rng).c_str())+1);
+//            if(new_prompt != NULL) {
+//                new_prompt[0] = '\0';
+//                strcat(new_prompt, gpt_random_prompt(rng).c_str());
+//            } else {
+//                return NULL;
+//            }
+//            params.prompt = new_prompt;
+//
+//            free(new_prompt);
+//        }
+//    }
 
     int64_t t_load_us = 0;
 
@@ -572,7 +603,7 @@ int generate(gpt_params & params, const gpt_vocab & vocab, gptj_model & model) {
 
             if (!gptj_eval(model, params.n_threads, n_past, embd, logits, mem_per_token)) {
                 printf("Failed to predict\n");
-                return 1;
+                return NULL;
             }
 
             t_predict_us += ggml_time_us() - t_start_us;
@@ -614,11 +645,14 @@ int generate(gpt_params & params, const gpt_vocab & vocab, gptj_model & model) {
             i += embd.size() - 1;
         }
 
-        // display text
+        // Append tokens
         for (auto id : embd) {
-            std::cout << vocab.id_to_token.at(id);
+            const char * token = vocab.id_to_token.at(id).c_str();
+            generated_text.append(token);
+            //std::cout << token;
+            //
         }
-        fflush(stdout);
+        //std::cout << generated_text;
 
         // end of text token
         if (embd.back() == 50256) {
@@ -631,6 +665,5 @@ int generate(gpt_params & params, const gpt_vocab & vocab, gptj_model & model) {
         const int64_t t_main_end_us = ggml_time_us();
     }
 
-
-    return 0;
+    return generated_text.c_str();
 }
