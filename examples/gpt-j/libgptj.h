@@ -24,7 +24,7 @@ struct gpt_params_c { int32_t seed      = -1; // RNG seed
     const char * model = "models/gpt-2-117M/ggml-model.bin"; // model path
     const char * prompt;
     
-    // TODO: Add n_ctx param
+    const int n_ctx = 2048;
 };
 
 static gptj_hparams hparams;

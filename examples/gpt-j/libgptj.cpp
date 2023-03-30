@@ -15,6 +15,7 @@ int generate(gpt_params_c & params, char ** output) {
     if (params.seed < 0) {
         params.seed = time(NULL);
     }
+    model.hparams.n_ctx = params.n_ctx;
 
     printf("%s: seed = %d\n", __func__, params.seed);
 
