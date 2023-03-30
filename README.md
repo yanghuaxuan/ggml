@@ -21,7 +21,7 @@ python ggml-kobold.py
 ```
 
 ## TODO
-* Add maximum context tuning for KoboldAI frontend
+* Add OpenBLAS for accelerated prompt processing
 
 ## License
 * The original GGML library and examples by ggerganov are licensed under the MIT License
