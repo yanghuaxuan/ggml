@@ -256,7 +256,7 @@ if __name__ == "__main__":
     parameters.temp = 1.0
     parameters.n_batch = 8
     # TODO: Add n_ctx tuning
-    parameters.model = os.path.join(Path.home(), "text-generation-webui/models/pygmalion-6b_f16/ggml-model.bin").encode("ascii")
+    parameters.model = os.path.join(Path.home(), "text-generation-webui/models/pygmalion-6b_f16/ggml-model-f16.bin").encode("ascii")
     parameters.prompt = "Hello world!".encode("ascii", "ignore")
 
     args = {"port": 5001, "host": "localhost"}

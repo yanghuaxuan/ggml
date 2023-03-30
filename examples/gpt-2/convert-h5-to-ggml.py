@@ -1,6 +1,6 @@
-# Convert GPT-J-6B h5 transformer model to ggml format
+# Convert GPT-2 h5 transformer model to ggml format
 #
-# Load the model using GPTJForCausalLM.
+# Load the model using GPT2Model.
 # Iterate over all variables and write them to a binary file.
 #
 # For each variable, write the following:
@@ -20,10 +20,10 @@
 import sys
 import struct
 import json
-import torch
 import numpy as np
+import re
 
-from transformers import GPTJForCausalLM
+from transformers import GPT2Model
 
 # ref: https://github.com/openai/gpt-2/blob/master/src/encoder.py
 def bytes_to_unicode():
@@ -47,10 +47,8 @@ def bytes_to_unicode():
     cs = [chr(n) for n in cs]
     return dict(zip(bs, cs))
 
-if len(sys.argv) < 3:
+if len(sys.argv) < 2:
     print("Usage: convert-h5-to-ggml.py dir-model [use-f32]\n")
-    print("  ftype == 0 -> float32")
-    print("  ftype == 1 -> float16")
     sys.exit(1)
 
 # output in the same directory as the model
@@ -66,23 +64,13 @@ with open(dir_model + "/added_tokens.json", "r") as f:
 with open(dir_model + "/config.json", "r") as f:
     hparams = json.load(f)
 
-# possible data types
-#   ftype == 0 -> float32
-#   ftype == 1 -> float16
-#
-# map from ftype to string
-ftype_str = ["f32", "f16"]
-
-ftype = 1
+# use 16-bit or 32-bit floats
+use_f16 = True
 if len(sys.argv) > 2:
-    ftype = int(sys.argv[2])
-    if ftype < 0 or ftype > 1:
-        print("Invalid ftype: " + str(ftype))
-        sys.exit(1)
-    fname_out = sys.argv[1] + "/ggml-model-" + ftype_str[ftype] + ".bin"
+    use_f16 = False
+    fname_out = sys.argv[1] + "/ggml-model-f32.bin"
 
-
-model = GPTJForCausalLM.from_pretrained(dir_model, low_cpu_mem_usage=True)
+model = GPT2Model.from_pretrained(dir_model, low_cpu_mem_usage=True)
 #print (model)
 
 list_vars = model.state_dict()
@@ -96,8 +84,8 @@ fout.write(struct.pack("i", hparams["n_positions"]))
 fout.write(struct.pack("i", hparams["n_embd"]))
 fout.write(struct.pack("i", hparams["n_head"]))
 fout.write(struct.pack("i", hparams["n_layer"]))
-fout.write(struct.pack("i", hparams["rotary_dim"]))
-fout.write(struct.pack("i", ftype))
+#fout.write(struct.pack("i", hparams["rotary_dim"]))
+fout.write(struct.pack("i", use_f16))
 
 byte_encoder = bytes_to_unicode()
 byte_decoder = {v:k for k, v in byte_encoder.items()}
@@ -126,40 +114,74 @@ for name in list_vars.keys():
     n_dims = len(data.shape);
 
     # ftype == 0 -> float32, ftype == 1 -> float16
-    ftype_cur = 0;
-    if ftype != 0:
+    ftype = 0;
+    if use_f16:
         if name[-7:] == ".weight" and n_dims == 2:
             print("  Converting to float16")
             data = data.astype(np.float16)
-            ftype_cur = 1
+            ftype = 1
         else:
             print("  Converting to float32")
             data = data.astype(np.float32)
-            ftype_cur = 0
-    else:
-        if data.dtype != np.float32:
-            print("  Converting to float32")
-            data = data.astype(np.float32)
-            ftype_cur = 0
+            ftype = 0
 
     # for efficiency - transpose these matrices:
-    # (note - with latest ggml this is no longer more efficient, so disabling it)
-    #  "transformer.h.*.mlp.fc_in.weight"
-    #  "transformer.h.*.attn.out_proj.weight"
-    #  "transformer.h.*.attn.q_proj.weight"
-    #  "transformer.h.*.attn.k_proj.weight"
-    #  "transformer.h.*.attn.v_proj.weight"
-    #if name.endswith(".mlp.fc_in.weight")     or \
-    #   name.endswith(".attn.out_proj.weight") or \
-    #   name.endswith(".attn.q_proj.weight")   or \
-    #   name.endswith(".attn.k_proj.weight")   or \
-    #   name.endswith(".attn.v_proj.weight"):
-    #    print("  Transposing")
-    #    data = data.transpose()
+    #  "transformer.h.*.mlp.c_proj.weight
+    if name.endswith(".mlp.c_proj.weight"):
+        print("  Transposing")
+        data = data.transpose()
 
-    # header
+    # rename headers to keep compatibility
+    if name == "ln_f.weight":
+        name = "model/ln_f/g"
+    elif name == "ln_f.bias":
+        name = "model/ln_f/b"
+    elif name == "wte.weight":
+        name = "model/wte"
+    elif name == "wpe.weight":
+        name = "model/wpe"
+    elif re.match(r'h\.\d+\.ln_1\.weight', name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/ln_1/g"
+    elif re.match(r"h\.\d+\.ln_1\.bias", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/ln_1/b"
+    elif re.match(r"h\.\d+\.attn\.c_attn\.weight", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/attn/c_attn/w"
+    elif re.match(r"h\.\d+\.attn\.c_attn\.bias", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/attn/c_attn/b"
+    elif re.match(r"h\.\d+\.attn\.c_proj\.weight", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/attn/c_proj/w"
+    elif re.match(r"h.\d+.attn.c_proj.bias", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/attn/c_proj/b"
+    elif re.match(r"h.\d+.ln_2.weight", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/ln_2/g"
+    elif re.match(r"h.\d+.ln_2.bias", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/ln_2/b"
+    elif re.match(r"h.\d+.mlp.c_fc.weight", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/mlp/c_fc/w"
+    elif re.match(r"h.\d+.mlp.c_fc.bias", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/mlp/c_fc/b"
+    elif re.match(r"h.\d+.mlp.c_proj.weight", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/mlp/c_proj/w"
+    elif re.match(r"h.\d+.mlp.c_proj.bias", name):
+        i = re.findall("\d+", name)[0]
+        name = f"model/h{i}/mlp/c_proj/b"
+    else:
+        print("Unrecognized variable name. %s", name)
+
     str = name.encode('utf-8')
-    fout.write(struct.pack("iii", n_dims, len(str), ftype_cur))
+
+    fout.write(struct.pack("iii", n_dims, len(str), ftype))
     for i in range(n_dims):
         fout.write(struct.pack("i", data.shape[n_dims - 1 - i]))
     fout.write(str);
