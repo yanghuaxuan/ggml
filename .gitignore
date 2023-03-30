@@ -1,6 +1,7 @@
 build/
 build-debug/
 build-*/
+venv/
 
 compile_commands.json
 

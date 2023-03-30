@@ -7,6 +7,22 @@
 #include <iostream>
 #include "unistd.h"
 
+struct gpt_params_c {
+    int32_t seed      = -1; // RNG seed
+    int32_t n_threads = std::min(4, (int32_t) std::thread::hardware_concurrency());
+    int32_t n_predict = 200; // new tokens to predict
+
+    // sampling parameters
+    int32_t top_k = 40;
+    float   top_p = 0.9f;
+    float   temp  = 1.0f;
+
+    int32_t n_batch = 8; // batch size for prompt processing
+
+    const char * model = "models/gpt-2-117M/ggml-model.bin"; // model path
+    const char * prompt;
+};
+
 // default hparams (GPT-J 6B)
 struct gptj_hparams {
     int32_t n_vocab = 50400;
@@ -63,6 +79,7 @@ struct gptj_model {
 
 bool gptj_model_load(const std::string & fname, gptj_model & model, gpt_vocab & vocab);
 
+
 bool gptj_eval(
         const gptj_model & model,
         const int n_threads,
@@ -70,3 +87,19 @@ bool gptj_eval(
         const std::vector<gpt_vocab::id> & embd_inp,
               std::vector<float>         & embd_w,
               size_t                     & mem_per_token);
+
+extern gpt_vocab vocab;
+extern gptj_model model;
+
+// C function to use for our Python KAI
+#ifdef __cplusplus
+extern "C" int load_model(gpt_params_c * params);
+#else
+int load_model(gpt_params_c * params);
+#endif
+// C function to use for our Python KAI
+#ifdef __cplusplus
+extern "C" const char * generate(gpt_params_c & params);
+#else
+const char * generate(gpt_params_c & params);
+#endif
