@@ -256,22 +256,13 @@ if __name__ == "__main__":
     parameters.temp = 1.0
     parameters.n_batch = 8
     # TODO: Add n_ctx tuning
-    parameters.model = os.path.join(Path.home(), "text-generation-webui/models/pygmalion-6b_f16/ggml-model.bin").encode("ascii")
-    parameters.prompt = "Hello world!".encode("ascii", "ignore")
+    model_path = input("Enter model path: ")
+    parameters.model = os.path.join(os.path.expanduser(model_path)).encode("ascii")
 
     args = {"port": 5001, "host": "localhost"}
 
     ggml_selected_file = parameters.model.decode("ascii")
     embedded_kailite = None 
-    if not ggml_selected_file:     
-        #give them a chance to pick a file
-        print("Please manually select ggml file:")
-        from tkinter.filedialog import askopenfilename
-        ggml_selected_file = askopenfilename (title="Select ggml model .bin files")
-        if not ggml_selected_file:
-            print("\nNo ggml model file was selected. Exiting.")
-            time.sleep(1)
-            sys.exit(2)
 
     if not os.path.exists(ggml_selected_file):
         print(f"Cannot find model file: {ggml_selected_file}")
