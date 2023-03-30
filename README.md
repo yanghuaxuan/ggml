@@ -23,6 +23,9 @@ python ggml-kobold.py
 ## TODO
 * Add OpenBLAS for accelerated prompt processing
 
+## Caveats
+* Max context tuning may or not actually work. Idk haven't managed to test if it works lol
+
 ## License
 * The original GGML library and examples by ggerganov are licensed under the MIT License
 * The original python script for running KoboldAI is licensed under AGPL v3.0 Licenese
