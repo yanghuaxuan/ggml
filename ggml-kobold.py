@@ -16,7 +16,8 @@ class gpt_params_c(ctypes.Structure):
                 ("temp", ctypes.c_float),
                 ("n_batch", ctypes.c_int32),
                 ("model", ctypes.c_char_p),
-                ("prompt", ctypes.c_char_p)]
+                ("prompt", ctypes.c_char_p),
+                ("n_ctx", ctypes.c_int)]
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 libgptj = ctypes.CDLL(dir_path + "/build/examples/gpt-j/liblibgptj.dylib")
@@ -145,11 +146,11 @@ class ServerRequestHandler(http.server.SimpleHTTPRequestHandler):
             if kai_api_flag:
                 parameters.seed=-1
                 parameters.prompt=newprompt.encode("ascii")
-                #parameters.max_context_length = ...
                 parameters.temp = float(genparams.get('temperature', parameters.temp))
                 parameters.top_k = int(genparams.get('top_k', parameters.top_k))
                 parameters.top_p= float(genparams.get('top_p', parameters.top_p))
                 parameters.n_predict = int(genparams.get('max_length', parameters.n_predict))
+                parameters.n_ctx = int(genparams.get('max_context_length', parameters.n_ctx))
                 print("PROMPT ===========: " + parameters.prompt.decode("ascii", "ignore"))
                 status = generate(parameters, ctypes.byref(output))
                 recvtxt = output.value.decode("ascii", "ignore")
